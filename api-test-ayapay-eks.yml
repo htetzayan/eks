@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nodejsapp-ns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: nodejsapp-ns
+  name: nodejsapp
+spec:
+  selector:
+    matchLabels:
+      app: nodejsapp
+  replicas: 1
+  revisionHistoryLimit: 5
+  template:
+    metadata:
+      labels:
+        app: nodejsapp
+    spec:
+      containers:
+        - name: nodejsapp
+          image: 734131281465.dkr.ecr.ap-southeast-1.amazonaws.com/nodejsapp:latest
+          ports:
+            - containerPort: 3000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: nodejsapp-ns
+  name: nodejsapp
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-0f018c9589a4c5e19,eipalloc-0f62b96f8706d8bbe,eipalloc-083f95271dab489c3
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
+    service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    #service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:ap-southeast-1:734131281465:certificate/7d04f526-2d19-478e-822a-2343000e439a
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+
+spec:
+  type: LoadBalancer
+  ports:
+    #- name: http
+      #port: 80
+      #targetPort: 3000
+    - name: https
+      port: 443
+      targetPort: 3000
+  selector:
+    app: nodejsapp
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    kubernetes.io/ingress.class: alb
+  labels:
+    app: nodejsapp
+  name: nodejsapp
+  namespace: nodejsapp-ns
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          serviceName: nodejsapp
+          servicePort: 80
+        path: /*
+status:
+  loadBalancer: {}
